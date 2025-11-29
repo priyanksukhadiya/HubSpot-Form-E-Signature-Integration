@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HubSpot Form with E-Signature - Complete Example</title>
+    
+    <!-- Required Libraries -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <script src="//js-na2.hsforms.net/forms/embed/v2.js"></script>
+    
+    <!-- Our E-Signature Integration -->
+    <script src="hubspot-esignature-integration.js"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            flex-direction: column;
+        }
+        
+        .loading-overlay h3 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #ecf0f1;
+            border-left: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .success-message h4 {
+            margin: 0 0 10px 0;
+        }
+        
+        /* HubSpot form styling */
+        #hubspot-form-container {
+            margin-top: 20px;
+        }
+        
+        .hs-form-field {
+            margin-bottom: 20px;
+        }
+        
+        .hs-form-field label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .hs-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .hs-input:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        
+        .hs-button {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .hs-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖊️ HubSpot E-Signature Demo</h1>
+            <p>Complete example with signature capture and HubSpot integration</p>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 How This Works</h3>
+            <ul>
+                <li><strong>Fill out the form</strong> with your information</li>
+                <li><strong>Sign in the signature box</strong> using your mouse or finger</li>
+                <li><strong>Submit the form</strong> - your signature will be automatically uploaded</li>
+                <li><strong>Processing complete</strong> - signature linked to your HubSpot contact record</li>
+            </ul>
+        </div>
+        
+        <!-- HubSpot Form Container -->
+        <div id="hubspot-form-container"></div>
+        
+        <!-- Success Message -->
+        <div id="event-submission-success" class="success-message">
+            <h4>✅ Success!</h4>
+            <p>Your form has been submitted and your signature has been processed successfully.</p>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="memberRegisterSplash" class="loading-overlay">
+        <h3>Processing Your Signature...</h3>
+        <p>Please wait while we upload and process your signature.</p>
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; font-size: 14px; color: #666;">
+            Do not close this window or navigate away.
+        </p>
+    </div>
+
+    <script>
+        // Configuration - Replace with your actual values
+        var frontend_ajax_object = {
+            ajax_url: "<?php echo admin_url('admin-ajax.php'); ?>" // For WordPress
+            // For non-WordPress: ajax_url: "/path/to/your/signature-handler.php"
+        };
+        
+        // Initialize HubSpot E-Signature Integration
+        document.addEventListener('DOMContentLoaded', function() {
+            const signature = new HubSpotESignatureIntegration({
+                // HubSpot Configuration
+                portalId: "YOUR_PORTAL_ID",           // Replace with your Portal ID
+                formId: "YOUR_FORM_ID",               // Replace with your Form ID
+                region: "na2",                        // Replace with your region (na1, na2, eu1, etc.)
+                target: '#hubspot-form-container',
+                
+                // Server Configuration
+                ajaxUrl: frontend_ajax_object.ajax_url,
+                uploadAction: 'upload_signature_image',
+                processAction: 'process_hubspot_signature_submission',
+                
+                // Field Configuration
+                signatureFieldName: 'signature_required_check', // Must match your HubSpot form field
+                signatureFieldValue: 'signatured',
+                
+                // UI Configuration
+                showClearButton: true,
+                autoHideField: true,
+                
+                // Canvas Configuration
+                canvasWidth: 500,
+                canvasHeight: 200,
+                
+                // Callbacks (optional)
+                onFormReady: function() {
+                    console.log('✅ HubSpot form ready');
+                },
+                
+                onSignatureDrawn: function() {
+                    console.log('✏️ Signature drawn');
+                },
+                
+                onUploadSuccess: function(data) {
+                    console.log('📤 Signature uploaded:', data.filename);
+                },
+                
+                onUploadError: function(error) {
+                    console.error('❌ Upload failed:', error.message);
+                    alert('Signature upload failed: ' + error.message);
+                }
+            });
+            
+            console.log('🚀 HubSpot E-Signature Integration initialized');
+        });
+        
+        // Debug helpers
+        function debugSignature() {
+            if (window.HubSpotESignatureIntegration) {
+                console.log('Signature URL:', signature.getSignatureUrl());
+                console.log('Is Empty:', signature.isEmpty());
+                console.log('Data URL:', signature.getSignatureDataURL());
+            }
+        }
+        
+        // Add debug button (development only)
+        if (window.location.search.includes('debug=1')) {
+            document.addEventListener('DOMContentLoaded', function() {
+                const debugBtn = document.createElement('button');
+                debugBtn.textContent = 'Debug Signature';
+                debugBtn.onclick = debugSignature;
+                debugBtn.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;';
+                document.body.appendChild(debugBtn);
+            });
+        }
+    </script>
+</body>
+</html>
